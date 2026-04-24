@@ -29,29 +29,34 @@ class _NewHotScreenState extends State<NewHotScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? KokoColors.background : KokoColors.lightBackground;
+    final titleColor = isDark ? Colors.white : KokoColors.lightTextPrimary;
+    final iconColor = isDark ? Colors.white : KokoColors.lightTextPrimary;
+
     return Scaffold(
-      backgroundColor: KokoColors.background,
+      backgroundColor: bg,
       body: SafeArea(child: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
           child: Row(children: [
-            const Expanded(
+            Expanded(
               child: Text(
                 'New & Hot 🔥',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: titleColor),
               ),
             ),
             IconButton(
               onPressed: () {},
-              icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+              icon: Icon(Icons.notifications_outlined, color: iconColor),
             ),
           ]),
         ),
         TabBar(
           controller: _tab,
           indicatorColor: KokoColors.primary,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white38,
+          labelColor: isDark ? Colors.white : KokoColors.lightTextPrimary,
+          unselectedLabelColor: isDark ? Colors.white38 : KokoColors.lightTextSecondary,
           labelStyle: const TextStyle(fontWeight: FontWeight.w700),
           tabs: const [Tab(text: 'Coming Soon'), Tab(text: 'Everyone\'s Watching')],
         ),
@@ -72,6 +77,9 @@ class _NewHotScreenState extends State<NewHotScreen>
 class _ComingSoonList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleColor = isDark ? Colors.white : KokoColors.lightTextPrimary;
+    final descColor = isDark ? Colors.white54 : KokoColors.lightTextSecondary;
     final items = romancePicksContent;
     return ListView.builder(
       physics: const BouncingScrollPhysics(),
@@ -84,7 +92,6 @@ class _ComingSoonList extends StatelessWidget {
           child: Container(
             margin: const EdgeInsets.only(bottom: 20),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // Poster thumbnail
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: AspectRatio(
@@ -98,13 +105,12 @@ class _ComingSoonList extends StatelessWidget {
                     Positioned(
                       bottom: 10,
                       right: 10,
-                      child: Row(children: [
-                        const Icon(Icons.notifications_outlined, color: Colors.white, size: 20),
-                        const SizedBox(width: 14),
-                        const Icon(Icons.info_outline, color: Colors.white, size: 20),
+                      child: Row(children: const [
+                        Icon(Icons.notifications_outlined, color: Colors.white, size: 20),
+                        SizedBox(width: 14),
+                        Icon(Icons.info_outline, color: Colors.white, size: 20),
                       ]),
                     ),
-                    // "Coming" badge
                     Positioned(
                       top: 10,
                       left: 10,
@@ -122,7 +128,7 @@ class _ComingSoonList extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(c.title,
-                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+                  style: TextStyle(color: titleColor, fontSize: 16, fontWeight: FontWeight.w800)),
               const SizedBox(height: 6),
               Text(c.genres.join(' • '),
                   style: const TextStyle(color: KokoColors.primary, fontSize: 12, fontWeight: FontWeight.w600)),
@@ -130,7 +136,7 @@ class _ComingSoonList extends StatelessWidget {
               Text(c.description,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white54, fontSize: 13, height: 1.5)),
+                  style: TextStyle(color: descColor, fontSize: 13, height: 1.5)),
             ]),
           ),
         );
