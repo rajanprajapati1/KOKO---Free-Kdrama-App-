@@ -17,7 +17,6 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _scaleAnim;
   late Animation<double> _fadeAnim;
 
   @override
@@ -25,20 +24,13 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 900),
     );
-    _scaleAnim = Tween<double>(
-      begin: 0.7,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
     _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeIn),
-      ),
+      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
     );
     _controller.forward();
-    Future.delayed(const Duration(milliseconds: 2200), () {
+    Future.delayed(const Duration(milliseconds: 2600), () {
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -46,7 +38,7 @@ class _SplashScreenState extends State<SplashScreen>
             pageBuilder: (_, __, ___) => const ProfileSelectionScreen(),
             transitionsBuilder: (_, anim, __, child) =>
                 FadeTransition(opacity: anim, child: child),
-            transitionDuration: const Duration(milliseconds: 600),
+            transitionDuration: const Duration(milliseconds: 700),
           ),
         );
       }
@@ -62,58 +54,13 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: FadeTransition(
-          opacity: _fadeAnim,
-          child: ScaleTransition(
-            scale: _scaleAnim,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Koko "K" logo badge — glowing pink
-                Container(
-                  width: 90,
-                  height: 90,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFFFF87B9), Color(0xFFB49EFF)],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: KokoColors.primary.withValues(alpha: 0.5),
-                        blurRadius: 40,
-                        spreadRadius: 5,
-                      ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'K',
-                      style: TextStyle(
-                        fontSize: 54,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        height: 1,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  'koko',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    letterSpacing: 6,
-                  ),
-                ),
-              ],
-            ),
+      backgroundColor: Colors.white,
+      body: FadeTransition(
+        opacity: _fadeAnim,
+        child: SizedBox.expand(
+          child: Image.asset(
+            'image.png',
+            fit: BoxFit.cover,
           ),
         ),
       ),
@@ -216,7 +163,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen>
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -248,7 +195,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen>
                     crossAxisCount: 2,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
-                    childAspectRatio: 0.68,
+                    childAspectRatio: 0.82,
                   ),
                   itemCount: _profiles.length,
                   itemBuilder: (context, i) {

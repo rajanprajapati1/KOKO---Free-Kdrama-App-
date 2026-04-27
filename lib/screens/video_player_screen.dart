@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import '../data/content_data.dart';
@@ -31,58 +32,114 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   late final VideoController controller = VideoController(player);
 
   bool _showControls = true;
+  bool _resolving = true;
+  String _resolveStatus = 'Finding best stream…';
   Timer? _hideTimer;
+
+  // ── CDN URL builder ────────────────────────────────────────────────────────
+  /// Convert a show title into a CDN-13 slug: "The Secret Friends Club" → "The-Secret-Friends-Club"
+  static String _slug(String title) =>
+      title.trim().replaceAll(RegExp(r'\s+'), '-');
+
+  /// All candidate URLs to try, in priority order.
+  static List<String> _buildCandidates({
+    required String showId,
+    required String showTitle,
+    required int epNum,
+  }) {
+    final slug = _slug(showTitle);
+    return [
+      // CDN-07 (most common)
+      'https://hls.cdnvideo11.shop/hls07/$showId/Ep${epNum}_index.m3u8',
+      // CDN-08
+      'https://hls08.cdnvideo11.shop/hls08/$showId/Ep${epNum}_index.m3u8',
+      // CDN-13 title-slug format
+      'https://hls13.cdnvideo11.shop/hls13/$slug-Ep$epNum/index.m3u8',
+      // CDN-07 with sub variant
+      'https://hls.cdnvideo11.shop/hls07/$showId/Ep${epNum}.v1_index.m3u8',
+    ];
+  }
+
+  static const _hdrs = {
+    'Origin': 'https://kisskh.nl',
+    'Referer': 'https://kisskh.nl/',
+    'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+        '(KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
+  };
+
+  /// Probe each candidate with a HEAD request; return the first 200/206.
+  Future<String> _probe(List<String> candidates) async {
+    final client = http.Client();
+    try {
+      for (int i = 0; i < candidates.length; i++) {
+        final url = candidates[i];
+        if (mounted) {
+          setState(() =>
+              _resolveStatus = 'Trying CDN ${i + 1}/${candidates.length}…');
+        }
+        try {
+          final res = await client
+              .head(Uri.parse(url), headers: {'Referer': 'https://kisskh.nl/'})
+              .timeout(const Duration(seconds: 5));
+          if (res.statusCode == 200 || res.statusCode == 206) {
+            return url;
+          }
+        } catch (_) {
+          // try next
+        }
+      }
+    } finally {
+      client.close();
+    }
+    // All failed — return first as last resort so player can show its own error
+    return candidates.first;
+  }
 
   @override
   void initState() {
     super.initState();
-
-    // Force landscape
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-    String actualVideoUrl = widget.videoUrl;
-    if (actualVideoUrl.isEmpty && widget.dramaId != null && widget.episode != null) {
+    _resolveAndPlay();
+  }
+
+  Future<void> _resolveAndPlay() async {
+    String url = widget.videoUrl;
+
+    // If no direct URL provided, probe CDN patterns
+    if (url.isEmpty && widget.dramaId != null && widget.episode != null) {
       final epNum = widget.episode!.number.toInt();
-      final sub = widget.episode!.sub;
-      if (sub > 0) {
-        actualVideoUrl = 'https://hls.cdnvideo11.shop/hls07/${widget.dramaId}/Ep$epNum.v${sub}_index.m3u8';
-      } else {
-        actualVideoUrl = 'https://hls.cdnvideo11.shop/hls07/${widget.dramaId}/Ep${epNum}_index.m3u8';
-      }
+      final candidates = _buildCandidates(
+        showId: widget.dramaId!,
+        showTitle: widget.title,
+        epNum: epNum,
+      );
+      url = await _probe(candidates);
     }
 
-    // Initialize player with headers to bypass CDN protection
+    if (!mounted) return;
+
+    setState(() => _resolving = false);
+
     player.open(
-      Media(
-        actualVideoUrl,
-        httpHeaders: {
-          'Origin': 'https://kisskh.nl',
-          'Referer': 'https://kisskh.nl/',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
-        },
-      ),
+      Media(url, httpHeaders: _hdrs),
     );
 
-    // Load default subtitle if available
     _loadDefaultSubtitle();
-
-    // Auto-hide controls
     _startHideTimer();
   }
 
   void _loadDefaultSubtitle() {
     if (widget.subtitles.isEmpty) return;
-    
-    // Find default or first subtitle
     final defaultSub = widget.subtitles.firstWhere(
       (s) => s.isDefault,
       orElse: () => widget.subtitles.first,
     );
-    
     _applySubtitle(defaultSub.url, defaultSub.label);
   }
 
@@ -97,9 +154,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void _startHideTimer() {
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted) {
-        setState(() => _showControls = false);
-      }
+      if (mounted) setState(() => _showControls = false);
     });
   }
 
@@ -110,12 +165,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
-    // Restore orientation
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    
     _hideTimer?.cancel();
     player.dispose();
     super.dispose();
@@ -123,6 +174,25 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_resolving) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: KokoColors.primary),
+              const SizedBox(height: 18),
+              Text(
+                _resolveStatus,
+                style: const TextStyle(color: Colors.white54, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(
@@ -131,21 +201,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           alignment: Alignment.center,
           children: [
             Video(controller: controller),
-            
-            // ── Controls Overlay ──
             if (_showControls)
               Positioned.fill(
                 child: Container(
                   color: Colors.black26,
                   child: Column(
                     children: [
-                      // Top bar
                       _buildTopBar(),
                       const Spacer(),
-                      // Center Play/Pause
                       _buildCenterControls(),
                       const Spacer(),
-                      // Bottom bar
                       _buildBottomBar(),
                     ],
                   ),
@@ -209,13 +274,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             IconButton(
               iconSize: 48,
               icon: const Icon(Icons.replay_10, color: Colors.white),
-              onPressed: () => player.seek(player.state.position - const Duration(seconds: 10)),
+              onPressed: () => player
+                  .seek(player.state.position - const Duration(seconds: 10)),
             ),
             const SizedBox(width: 48),
             IconButton(
               iconSize: 72,
               icon: Icon(
-                isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                isPlaying
+                    ? Icons.pause_circle_filled
+                    : Icons.play_circle_filled,
                 color: Colors.white,
               ),
               onPressed: isPlaying ? player.pause : player.play,
@@ -224,7 +292,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             IconButton(
               iconSize: 48,
               icon: const Icon(Icons.forward_10, color: Colors.white),
-              onPressed: () => player.seek(player.state.position + const Duration(seconds: 10)),
+              onPressed: () => player
+                  .seek(player.state.position + const Duration(seconds: 10)),
             ),
           ],
         );
@@ -244,7 +313,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       ),
       child: Column(
         children: [
-          // Seek bar
           _buildSeekBar(),
           Row(
             children: [
@@ -254,7 +322,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   final pos = snapshot.data ?? Duration.zero;
                   return Text(
                     _formatDuration(pos),
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    style:
+                        const TextStyle(color: Colors.white, fontSize: 12),
                   );
                 },
               ),
@@ -265,7 +334,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   final dur = snapshot.data ?? Duration.zero;
                   return Text(
                     _formatDuration(dur),
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    style:
+                        const TextStyle(color: Colors.white, fontSize: 12),
                   );
                 },
               ),
@@ -286,13 +356,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             final pos = snapshotPos.data ?? Duration.zero;
             final dur = snapshotDur.data ?? Duration.zero;
             final max = dur.inMilliseconds.toDouble();
-            final current = pos.inMilliseconds.toDouble().clamp(0.0, max);
-            
+            final current =
+                pos.inMilliseconds.toDouble().clamp(0.0, max);
+
             return SliderTheme(
               data: SliderTheme.of(context).copyWith(
                 trackHeight: 4,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
+                thumbShape:
+                    const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                overlayShape:
+                    const RoundSliderOverlayShape(overlayRadius: 14.0),
                 activeTrackColor: KokoColors.primary,
                 inactiveTrackColor: Colors.white30,
                 thumbColor: KokoColors.primary,
@@ -326,7 +399,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           children: [
             const Text(
               'Subtitles',
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             Flexible(
@@ -334,8 +410,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 child: Column(
                   children: [
                     ListTile(
-                      leading: const Icon(Icons.subtitles_off, color: Colors.white70),
-                      title: const Text('None', style: TextStyle(color: Colors.white)),
+                      leading: const Icon(Icons.subtitles_off,
+                          color: Colors.white70),
+                      title: const Text('None',
+                          style: TextStyle(color: Colors.white)),
                       onTap: () {
                         _applySubtitle(null);
                         Navigator.pop(context);
@@ -343,8 +421,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     ),
                     const Divider(color: Colors.white10),
                     ...widget.subtitles.map((sub) => ListTile(
-                          leading: const Icon(Icons.language, color: Colors.white70),
-                          title: Text(sub.label, style: const TextStyle(color: Colors.white)),
+                          leading: const Icon(Icons.language,
+                              color: Colors.white70),
+                          title: Text(sub.label,
+                              style:
+                                  const TextStyle(color: Colors.white)),
                           onTap: () {
                             _applySubtitle(sub.url, sub.label);
                             Navigator.pop(context);

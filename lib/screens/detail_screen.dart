@@ -3,6 +3,7 @@ import '../theme/koko_theme.dart';
 import '../data/content_data.dart';
 import '../widgets/content_poster.dart';
 import '../data/api_service.dart';
+import '../data/favorites_service.dart';
 import 'video_player_screen.dart';
 import 'home_screen.dart' show openDetail;
 import '../widgets/compact_poster.dart';
@@ -26,6 +27,7 @@ class _DetailScreenState extends State<DetailScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _inMyList = FavoritesService.instance.isFavorite(widget.content.id);
     _loadDetail();
   }
 
@@ -40,31 +42,16 @@ class _DetailScreenState extends State<DetailScreen>
   }
 
   Future<void> _playEpisode(Episode episode, String title) async {
-    // Show loading overlay
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(color: KokoColors.primary),
-      ),
-    );
-
     try {
-      final videos = await ApiService.getEpisodeVideo(episode.id);
       final subs = await ApiService.getEpisodeSubtitles(episode.id);
-
       if (!mounted) return;
-      Navigator.pop(context); // Remove loading
 
-      // Even if videos list is empty (because API response is encrypted hex),
-      // we navigate to VideoPlayerScreen and pass the episode & dramaId.
-      // VideoPlayerScreen will construct the video URL.
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => VideoPlayerScreen(
             title: title,
-            videoUrl: videos.isNotEmpty ? videos.first.url : "",
+            videoUrl: '',          // always empty — let player resolve CDN
             subtitles: subs,
             dramaId: widget.content.id,
             episode: episode,
@@ -72,8 +59,7 @@ class _DetailScreenState extends State<DetailScreen>
         ),
       );
     } catch (e) {
-      if (mounted) Navigator.pop(context);
-      print('Error playing: $e');
+      debugPrint('Error navigating to player: $e');
     }
   }
 
@@ -384,7 +370,10 @@ class _DetailScreenState extends State<DetailScreen>
                         _IconAction(
                           icon: _inMyList ? Icons.check : Icons.add,
                           label: 'My List',
-                          onTap: () => setState(() => _inMyList = !_inMyList),
+                          onTap: () {
+                            FavoritesService.instance.toggle(widget.content);
+                            setState(() => _inMyList = !_inMyList);
+                          },
                           color: _inMyList ? KokoColors.primary : Colors.white,
                         ),
                         const _IconAction(

@@ -3,6 +3,22 @@ import 'package:flutter/cupertino.dart';
 import '../theme/koko_theme.dart';
 import '../data/koko_profile.dart';
 import '../main.dart';
+import 'favorites_screen.dart';
+import 'downloads_screen.dart';
+
+// Avatar options for the picker (from memoji CDN used in splash)
+const _kAvatarOptions = [
+  'https://cdn.jsdelivr.net/gh/alohe/memojis/png/3d_4.png',
+  'https://cdn.jsdelivr.net/gh/alohe/memojis/png/vibrent_10.png',
+  'https://cdn.jsdelivr.net/gh/alohe/memojis/png/vibrent_6.png',
+  'https://cdn.jsdelivr.net/gh/alohe/memojis/png/vibrent_17.png',
+  'https://cdn.jsdelivr.net/gh/alohe/memojis/png/3d_1.png',
+  'https://cdn.jsdelivr.net/gh/alohe/memojis/png/3d_2.png',
+  'https://cdn.jsdelivr.net/gh/alohe/memojis/png/vibrent_1.png',
+  'https://cdn.jsdelivr.net/gh/alohe/memojis/png/vibrent_3.png',
+  'https://cdn.jsdelivr.net/gh/alohe/memojis/png/vibrent_5.png',
+  'https://cdn.jsdelivr.net/gh/alohe/memojis/png/vibrent_8.png',
+];
 
 class ProfileScreen extends StatefulWidget {
   final KokoProfile? profile;
@@ -17,6 +33,183 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _downloadWifi = false;
   bool _autoplay = true;
 
+  // Local editable profile state
+  late String _name;
+  late String _avatarUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = widget.profile?.name ?? 'Koko User';
+    _avatarUrl = widget.profile?.avatarUrl ?? _kAvatarOptions[0];
+  }
+
+  // ── Edit profile bottom sheet ───────────────────────────────────────────────
+  void _showEditProfile(bool isDark) {
+    final ctrl = TextEditingController(text: _name);
+    String selectedAvatar = _avatarUrl;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? KokoColors.surface : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setModal) {
+          final titleColor = isDark ? Colors.white : KokoColors.lightTextPrimary;
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              left: 24,
+              right: 24,
+              top: 24,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Handle ─────────────────────────────────────────────────
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.black12,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+
+                Text(
+                  'Edit Profile',
+                  style: TextStyle(
+                    color: titleColor,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // ── Name field ──────────────────────────────────────────────
+                Text(
+                  'Name',
+                  style: TextStyle(
+                      color: isDark ? Colors.white54 : Colors.black45,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: ctrl,
+                  style: TextStyle(color: titleColor, fontSize: 15),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF3F4F6),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    hintText: 'Your name',
+                    hintStyle: TextStyle(
+                        color: isDark ? Colors.white24 : Colors.black26),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // ── Avatar picker ────────────────────────────────────────────
+                Text(
+                  'Choose Avatar',
+                  style: TextStyle(
+                      color: isDark ? Colors.white54 : Colors.black45,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 70,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _kAvatarOptions.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    itemBuilder: (_, i) {
+                      final av = _kAvatarOptions[i];
+                      final isSelected = av == selectedAvatar;
+                      return GestureDetector(
+                        onTap: () => setModal(() => selectedAvatar = av),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected
+                                  ? KokoColors.primary
+                                  : Colors.transparent,
+                              width: 3,
+                            ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color:
+                                          KokoColors.primary.withOpacity(0.4),
+                                      blurRadius: 10,
+                                    )
+                                  ]
+                                : [],
+                          ),
+                          child: ClipOval(
+                            child: Image.network(av, fit: BoxFit.cover),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // ── Save button ──────────────────────────────────────────────
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: KokoColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _name = ctrl.text.trim().isEmpty
+                            ? _name
+                            : ctrl.text.trim();
+                        _avatarUrl = selectedAvatar;
+                      });
+                      Navigator.pop(ctx);
+                    },
+                    child: const Text(
+                      'Save Changes',
+                      style: TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        });
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -26,19 +219,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final cardBg = isDark ? KokoColors.surface : KokoColors.lightSurface;
     final labelColor = isDark ? Colors.white54 : KokoColors.lightTextSecondary;
     final titleColor = isDark ? Colors.white : KokoColors.lightTextPrimary;
-    final subtitleColor = isDark ? Colors.white54 : KokoColors.lightTextSecondary;
-    final dividerColor = isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF3F4F6);
-    final chevronColor = isDark ? Colors.white24 : const Color(0xFFD1D5DB);
+    final subtitleColor =
+        isDark ? Colors.white54 : KokoColors.lightTextSecondary;
+    final dividerColor =
+        isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF3F4F6);
+    final chevronColor =
+        isDark ? Colors.white24 : const Color(0xFFD1D5DB);
     final cardShadow = isDark
         ? <BoxShadow>[]
-        : [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))];
+        : [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2))
+          ];
 
     return Scaffold(
       backgroundColor: bg,
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // ─── App Bar ───────────────────────────────────────────
+          // ─── App Bar ────────────────────────────────────────────────────
           SliverAppBar(
             backgroundColor: Colors.transparent,
             surfaceTintColor: Colors.transparent,
@@ -55,7 +256,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onPressed: () {},
                 child: Text(
                   'Logout',
-                  style: TextStyle(color: titleColor, fontSize: 15, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                      color: titleColor,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500),
                 ),
               ),
             ],
@@ -67,22 +271,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 const SizedBox(height: 8),
 
-                // ─── Avatar + Name + Email ─────────────────────
+                // ─── Avatar + Name + Email ────────────────────────────────
                 Column(
                   children: [
-                    // Avatar — shows selected profile image or fallback
                     Container(
                       width: 86,
                       height: 86,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: widget.profile?.avatarUrl == null
-                            ? const LinearGradient(
-                                colors: [Color(0xFFFFB3D1), Color(0xFFFF87B9)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              )
-                            : null,
                         boxShadow: [
                           BoxShadow(
                             color: KokoColors.primary.withOpacity(0.35),
@@ -91,23 +287,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ],
                       ),
-                      child: widget.profile != null
-                          ? ClipOval(
-                              child: Image.network(
-                                widget.profile!.avatarUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Center(
-                                  child: Text('😊', style: TextStyle(fontSize: 38)),
-                                ),
-                              ),
-                            )
-                          : const Center(
-                              child: Text('😊', style: TextStyle(fontSize: 38)),
+                      child: ClipOval(
+                        child: Image.network(
+                          _avatarUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: const Color(0xFFFFB3D1),
+                            child: const Center(
+                              child:
+                                  Text('😊', style: TextStyle(fontSize: 38)),
                             ),
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      widget.profile?.name ?? 'Ryan Schnetzer',
+                      _name,
                       style: TextStyle(
                         color: titleColor,
                         fontSize: 20,
@@ -116,19 +312,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'ryansc@acme.co',
-                      style: TextStyle(color: subtitleColor, fontSize: 14),
+                      'koko@streamer.app',
+                      style:
+                          TextStyle(color: subtitleColor, fontSize: 14),
                     ),
                   ],
                 ),
 
                 const SizedBox(height: 24),
 
-                // ─── Edit Profile Button ───────────────────────
+                // ─── Edit Profile Button ──────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: GestureDetector(
-                    onTap: () {},
+                    onTap: () => _showEditProfile(isDark),
                     child: Container(
                       height: 44,
                       decoration: BoxDecoration(
@@ -147,10 +344,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         children: const [
                           Text(
                             'Edit profile',
-                            style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600),
                           ),
                           SizedBox(width: 6),
-                          Icon(Icons.chevron_right, color: Colors.white, size: 18),
+                          Icon(Icons.chevron_right,
+                              color: Colors.white, size: 18),
                         ],
                       ),
                     ),
@@ -159,97 +360,135 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 const SizedBox(height: 32),
 
-                // ─── Content Section ───────────────────────────
+                // ─── Content Section ──────────────────────────────────────
                 _SectionLabel(label: 'Content', color: labelColor),
                 _Card(bg: cardBg, shadow: cardShadow, children: [
                   _NavRow(
-                    icon: Icons.add,
-                    iconBg: isDark ? const Color(0xFF1A3A2A) : const Color(0xFFDCFCE7),
+                    icon: Icons.favorite_rounded,
+                    iconBg: isDark
+                        ? const Color(0xFF1A3A2A)
+                        : const Color(0xFFDCFCE7),
                     iconColor: const Color(0xFF16A34A),
                     label: 'Favorites',
                     titleColor: titleColor,
                     chevronColor: chevronColor,
-                    onTap: () {},
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const FavoritesScreen()),
+                    ),
                   ),
                   _Divider(color: dividerColor),
                   _NavRow(
                     icon: Icons.arrow_downward_rounded,
-                    iconBg: isDark ? const Color(0xFF1A1A3A) : const Color(0xFFE0E7FF),
+                    iconBg: isDark
+                        ? const Color(0xFF1A1A3A)
+                        : const Color(0xFFE0E7FF),
                     iconColor: const Color(0xFF4F46E5),
                     label: 'Downloads',
                     titleColor: titleColor,
                     chevronColor: chevronColor,
-                    onTap: () {},
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const DownloadsScreen()),
+                    ),
                   ),
                 ]),
 
                 const SizedBox(height: 24),
 
-                // ─── Preferences Section ───────────────────────
+                // ─── Preferences Section ──────────────────────────────────
                 _SectionLabel(label: 'Preferences', color: labelColor),
                 _Card(bg: cardBg, shadow: cardShadow, children: [
                   _NavRow(
                     icon: Icons.translate_rounded,
-                    iconBg: isDark ? const Color(0xFF3A3010) : const Color(0xFFFEF9C3),
+                    iconBg: isDark
+                        ? const Color(0xFF3A3010)
+                        : const Color(0xFFFEF9C3),
                     iconColor: const Color(0xFFCA8A04),
                     label: 'Language',
                     titleColor: titleColor,
                     chevronColor: chevronColor,
-                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text('English', style: TextStyle(color: subtitleColor, fontSize: 14)),
-                      const SizedBox(width: 4),
-                      Icon(Icons.chevron_right, color: chevronColor, size: 20),
-                    ]),
+                    trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('English',
+                              style: TextStyle(
+                                  color: subtitleColor, fontSize: 14)),
+                          const SizedBox(width: 4),
+                          Icon(Icons.chevron_right,
+                              color: chevronColor, size: 20),
+                        ]),
                     onTap: () {},
                   ),
                   _Divider(color: dividerColor),
                   _NavRow(
                     icon: Icons.notifications_outlined,
-                    iconBg: isDark ? const Color(0xFF3A1010) : const Color(0xFFFEE2E2),
+                    iconBg: isDark
+                        ? const Color(0xFF3A1010)
+                        : const Color(0xFFFEE2E2),
                     iconColor: const Color(0xFFDC2626),
                     label: 'Notifications',
                     titleColor: titleColor,
                     chevronColor: chevronColor,
-                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text('Enabled', style: TextStyle(color: subtitleColor, fontSize: 14)),
-                      const SizedBox(width: 4),
-                      Icon(Icons.chevron_right, color: chevronColor, size: 20),
-                    ]),
+                    trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('Enabled',
+                              style: TextStyle(
+                                  color: subtitleColor, fontSize: 14)),
+                          const SizedBox(width: 4),
+                          Icon(Icons.chevron_right,
+                              color: chevronColor, size: 20),
+                        ]),
                     onTap: () {},
                   ),
                   _Divider(color: dividerColor),
-                  // ── Theme Toggle Row ────────────────────────
+                  // ── Theme Toggle Row ──────────────────────────────────
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     child: Row(
                       children: [
                         Container(
-                          width: 34, height: 34,
+                          width: 34,
+                          height: 34,
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF2A1A3A) : const Color(0xFFF3E8FF),
+                            color: isDark
+                                ? const Color(0xFF2A1A3A)
+                                : const Color(0xFFF3E8FF),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.palette_outlined, color: Color(0xFF9333EA), size: 18),
+                          child: const Icon(Icons.palette_outlined,
+                              color: Color(0xFF9333EA), size: 18),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
                           child: Text(
                             'Theme',
-                            style: TextStyle(color: titleColor, fontSize: 15, fontWeight: FontWeight.w500),
+                            style: TextStyle(
+                                color: titleColor,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500),
                           ),
                         ),
-                        // Dark / Light switcher pill
                         GestureDetector(
                           onTap: () {
                             final app = KokoApp.of(context);
-                            app.setThemeMode(isDark ? ThemeMode.light : ThemeMode.dark);
+                            app.setThemeMode(isDark
+                                ? ThemeMode.light
+                                : ThemeMode.dark);
                           },
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 250),
                             height: 32,
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 4),
                             decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF252525) : const Color(0xFFE5E7EB),
+                              color: isDark
+                                  ? const Color(0xFF252525)
+                                  : const Color(0xFFE5E7EB),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Row(
@@ -279,22 +518,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 const SizedBox(height: 24),
 
-                // ─── Playback Section ─────────────────────────
+                // ─── Playback Section ─────────────────────────────────────
                 _SectionLabel(label: 'Playback', color: labelColor),
                 _Card(bg: cardBg, shadow: cardShadow, children: [
                   _ToggleRow(
                     icon: Icons.pause_circle_outline_rounded,
-                    iconBg: isDark ? const Color(0xFF0A2030) : const Color(0xFFE0F2FE),
+                    iconBg: isDark
+                        ? const Color(0xFF0A2030)
+                        : const Color(0xFFE0F2FE),
                     iconColor: const Color(0xFF0284C7),
                     label: 'Background play',
                     titleColor: titleColor,
                     value: _backgroundPlay,
-                    onChanged: (v) => setState(() => _backgroundPlay = v),
+                    onChanged: (v) =>
+                        setState(() => _backgroundPlay = v),
                   ),
                   _Divider(color: dividerColor),
                   _ToggleRow(
                     icon: Icons.wifi_rounded,
-                    iconBg: isDark ? const Color(0xFF0A2A1A) : const Color(0xFFDCFCE7),
+                    iconBg: isDark
+                        ? const Color(0xFF0A2A1A)
+                        : const Color(0xFFDCFCE7),
                     iconColor: const Color(0xFF16A34A),
                     label: 'Download via WiFi only',
                     titleColor: titleColor,
@@ -304,7 +548,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _Divider(color: dividerColor),
                   _ToggleRow(
                     icon: Icons.replay_circle_filled_outlined,
-                    iconBg: isDark ? const Color(0xFF2A1A00) : const Color(0xFFFEF3C7),
+                    iconBg: isDark
+                        ? const Color(0xFF2A1A00)
+                        : const Color(0xFFFEF3C7),
                     iconColor: const Color(0xFFD97706),
                     label: 'Autoplay',
                     titleColor: titleColor,
@@ -335,7 +581,11 @@ class _ThemePill extends StatelessWidget {
   final String label;
   final bool isActive;
   final Color activeColor;
-  const _ThemePill({required this.icon, required this.label, required this.isActive, required this.activeColor});
+  const _ThemePill(
+      {required this.icon,
+      required this.label,
+      required this.isActive,
+      required this.activeColor});
 
   @override
   Widget build(BuildContext context) {
@@ -349,7 +599,10 @@ class _ThemePill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: isActive ? Colors.white : const Color(0xFF9CA3AF)),
+          Icon(icon,
+              size: 14,
+              color:
+                  isActive ? Colors.white : const Color(0xFF9CA3AF)),
           const SizedBox(width: 4),
           Text(
             label,
@@ -378,7 +631,11 @@ class _SectionLabel extends StatelessWidget {
         alignment: Alignment.centerLeft,
         child: Text(
           label,
-          style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.3),
+          style: TextStyle(
+              color: color,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3),
         ),
       ),
     );
@@ -389,7 +646,10 @@ class _Card extends StatelessWidget {
   final Color bg;
   final List<BoxShadow> shadow;
   final List<Widget> children;
-  const _Card({required this.bg, required this.shadow, required this.children});
+  const _Card(
+      {required this.bg,
+      required this.shadow,
+      required this.children});
 
   @override
   Widget build(BuildContext context) {
@@ -438,18 +698,24 @@ class _NavRow extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 34, height: 34,
-              decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(8)),
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                  color: iconBg, borderRadius: BorderRadius.circular(8)),
               child: Icon(icon, color: iconColor, size: 18),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
                 label,
-                style: TextStyle(color: titleColor, fontSize: 15, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                    color: titleColor,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500),
               ),
             ),
-            trailing ?? Icon(Icons.chevron_right, color: chevronColor, size: 20),
+            trailing ??
+                Icon(Icons.chevron_right, color: chevronColor, size: 20),
           ],
         ),
       ),
@@ -479,19 +745,26 @@ class _ToggleRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
           Container(
-            width: 34, height: 34,
-            decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(8)),
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(8)),
             child: Icon(icon, color: iconColor, size: 18),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Text(
               label,
-              style: TextStyle(color: titleColor, fontSize: 15, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                  color: titleColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500),
             ),
           ),
           CupertinoSwitch(

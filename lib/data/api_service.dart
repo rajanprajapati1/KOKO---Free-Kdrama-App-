@@ -15,17 +15,19 @@ class ApiService {
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "en-US,en;q=0.8",
     "Connection": "keep-alive",
-    "Cookie": "g_state={\"i_l\":0,\"i_ll\":1776495839374,\"i_b\":\"1LGHZrUonLEZApjuweodx1sTPQqUgy2pDjF1DUV1rnY\",\"i_e\":{\"enable_itp_optimization\":1},\"i_et\":1776494687546}",
+    "Cookie":
+        "g_state={\"i_l\":0,\"i_ll\":1776495839374,\"i_b\":\"1LGHZrUonLEZApjuweodx1sTPQqUgy2pDjF1DUV1rnY\",\"i_e\":{\"enable_itp_optimization\":1},\"i_et\":1776494687546}",
     "Origin": "https://kisskh.nl",
     "Referer": "https://kisskh.nl/",
     "Sec-Fetch-Dest": "empty",
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Site": "cross-site",
     "Sec-GPC": "1",
-    "User-Agent": "Mozilla/5.0 (Linux; Android 8.1.0; Vivo 1807) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+    "User-Agent":
+        "Mozilla/5.0 (Linux; Android 8.1.0; Vivo 1807) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
     "sec-ch-ua": "\"Not:A-Brand\";v=\"99\", \"Chromium\";v=\"120\"",
     "sec-ch-ua-mobile": "?1",
-    "sec-ch-ua-platform": "\"Android\""
+    "sec-ch-ua-platform": "\"Android\"",
   };
 
   // Static kkey from user snippet — if this expires, it will need to be refreshed
@@ -49,7 +51,11 @@ class ApiService {
     final cached = _cache[endpoint];
     if (cached != null && cached.isValid) {
       final rawList = cached.data as List<dynamic>;
-      return _mapToContent(rawList, topTenStartRank: topTenStartRank, isNew: isNew);
+      return _mapToContent(
+        rawList,
+        topTenStartRank: topTenStartRank,
+        isNew: isNew,
+      );
     }
 
     try {
@@ -61,7 +67,11 @@ class ApiService {
           data,
           DateTime.now().add(_cacheDuration),
         );
-        return _mapToContent(data, topTenStartRank: topTenStartRank, isNew: isNew);
+        return _mapToContent(
+          data,
+          topTenStartRank: topTenStartRank,
+          isNew: isNew,
+        );
       }
     } catch (e) {
       print('Error fetching $endpoint: $e');
@@ -73,23 +83,27 @@ class ApiService {
     List<dynamic> data, {
     int? topTenStartRank,
     bool isNew = false,
+    bool useLabelForYear = false,
   }) {
     List<KDramaContent> contents = [];
     for (int i = 0; i < data.length; i++) {
       final item = data[i];
-      contents.add(KDramaContent(
-        id: item['id'].toString(),
-        title: item['title'] ?? 'Unknown',
-        posterUrl: item['thumbnail'] ?? '',
-        backdropUrl: item['thumbnail'] ?? '',
-        year: '',
-        rating: '16+',
-        seasons: '${item['episodesCount'] ?? 1} Episodes',
-        description: '',
-        genres: [],
-        isNew: isNew,
-        topTenRank: topTenStartRank != null ? topTenStartRank + i : null,
-      ));
+      final label = (item['label'] as String? ?? '').trim();
+      contents.add(
+        KDramaContent(
+          id: item['id'].toString(),
+          title: item['title'] ?? 'Unknown',
+          posterUrl: item['thumbnail'] ?? '',
+          backdropUrl: item['thumbnail'] ?? '',
+          year: useLabelForYear ? label : '',
+          rating: '16+',
+          seasons: '${item['episodesCount'] ?? 0} Episodes',
+          description: '',
+          genres: [],
+          isNew: isNew,
+          topTenRank: topTenStartRank != null ? topTenStartRank + i : null,
+        ),
+      );
     }
     return contents;
   }
@@ -116,7 +130,9 @@ class ApiService {
   }
 
   static Future<List<KDramaContent>> getTopRating() {
-    return fetchDramaList('https://kisskh.nl/api/DramaList/TopRating?ispc=true');
+    return fetchDramaList(
+      'https://kisskh.nl/api/DramaList/TopRating?ispc=true',
+    );
   }
 
   static Future<List<KDramaContent>> getAnimate() {
@@ -124,7 +140,40 @@ class ApiService {
   }
 
   static Future<List<KDramaContent>> getMostSearch() {
-    return fetchDramaList('https://kisskh.nl/api/DramaList/MostSearch?ispc=false');
+    return fetchDramaList(
+      'https://kisskh.nl/api/DramaList/MostSearch?ispc=false',
+    );
+  }
+
+  /// Coming Soon tab — uses ispc=false, label field → year
+  static Future<List<KDramaContent>> getUpcoming() async {
+    const endpoint = 'https://kisskh.nl/api/DramaList/Upcoming?ispc=false';
+    final cached = _cache[endpoint];
+    if (cached != null && cached.isValid) {
+      return _mapToContent(cached.data as List<dynamic>, useLabelForYear: true);
+    }
+    try {
+      final response = await http.get(Uri.parse(endpoint), headers: headers);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        _cache[endpoint] = _CacheEntry(
+          data,
+          DateTime.now().add(_cacheDuration),
+        );
+        return _mapToContent(data, useLabelForYear: true);
+      }
+    } catch (e) {
+      print('Error fetching upcoming: $e');
+    }
+    return [];
+  }
+
+  /// Everyone's Watching tab — MostView ispc=false&c=2
+  static Future<List<KDramaContent>> getMostViewedMobile() {
+    return fetchDramaList(
+      'https://kisskh.nl/api/DramaList/MostView?ispc=false&c=2',
+      topTenStartRank: 1,
+    );
   }
 
   // ─── Search (not cached — always fresh) ──────────────────────
@@ -156,7 +205,8 @@ class ApiService {
     try {
       final response = await http.get(
         Uri.parse(
-            'https://kisskh.nl/api/DramaList/Episode/$episodeId.png?isq=false'),
+          'https://kisskh.nl/api/DramaList/Episode/$episodeId.png?isq=false',
+        ),
         headers: headers,
       );
       if (response.statusCode == 200) {

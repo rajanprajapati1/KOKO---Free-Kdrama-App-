@@ -43,6 +43,7 @@ dependencies:
   media_kit_libs_video: ^1.0.7
   media_kit_libs_windows_video: ^1.0.0
   path_provider: ^2.1.2
+  cached_network_image: ^3.4.1
 
 dev_dependencies:
   flutter_test:
@@ -67,10 +68,14 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  fonts:
+    - family: MaterialSymbolsRounded
+      fonts:
+        - asset: packages/material_symbols_icons/fonts/MaterialSymbolsRounded.ttf
+
+  assets:
+    - image.png
+    - "image copy.png"
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
